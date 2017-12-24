@@ -4,6 +4,7 @@ import decorateComponentWithProps from 'decorate-component-with-props';
 import { Map } from 'immutable';
 import suggestionsFilter from './utils/defaultSuggestionsFilter';
 import defaultPositionSuggestions from './utils/positionSuggestions';
+import getSearchText from './utils';
 
 const createCompletionPlugin = (
   completionSuggestionsStrategy,
@@ -115,3 +116,4 @@ const createCompletionPlugin = (
 export default createCompletionPlugin;
 
 export const defaultSuggestionsFilter = suggestionsFilter;
+export const getSearchText = getSearchText;

@@ -31,12 +31,14 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
     }
 
     componentWillReceiveProps(nextProps) {
-      if (nextProps.suggestions.size === 0 && this.state.isActive) {
+      if (nextProps.suggestions.length === 0 && this.state.isActive) {
         this.closeDropdown();
+      } else if (nextProps.suggestions.length > 0 && !this.state.isActive && nextProps.suggestions !== this.props.suggestions) {
+        this.openDropdown();
       }
     }
 
-    componentDidUpdate = (prevProps, prevState) => {
+    componentDidUpdate(prevProps, prevState) {
       if (this.popover) {
         // In case the list shrinks there should be still an option focused.
         // Note: this might run multiple times and deduct 1 until the condition is
@@ -61,11 +63,11 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
           this.popover.style[key] = newStyles[key];
         });
       }
-    };
+    }
 
-    componentWillUnmount = () => {
+    componentWillUnmount() {
       this.props.callbacks.onChange = undefined;
-    };
+    }
 
     onEditorStateChange = (editorState) => {
       const searches = this.props.store.getAllSearches();
