@@ -17,6 +17,9 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       suggestions: PropTypes.arrayOf(PropTypes.object).isRequired
     };
 
+    popover;
+    popoverRef = ref => this.popover = ref;
+
     state = {
       isActive: false,
       focusedOptionIndex: 0,
@@ -34,7 +37,7 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
     }
 
     componentDidUpdate = (prevProps, prevState) => {
-      if (this.refs.popover) {
+      if (this.popover) {
         // In case the list shrinks there should be still an option focused.
         // Note: this might run multiple times and deduct 1 until the condition is
         // not fullfilled anymore.
@@ -52,10 +55,10 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
           prevState,
           props: this.props,
           state: this.state,
-          popover: this.refs.popover,
+          popover: this.popover,
         });
         Object.keys(newStyles).forEach((key) => {
-          this.refs.popover.style[key] = newStyles[key];
+          this.popover.style[key] = newStyles[key];
         });
       }
     };
@@ -265,14 +268,25 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
         return null;
       }
 
-      const { theme = {} } = this.props;
+      const {
+        callbacks,
+        ariaProps,
+        suggestions,
+        onSearchChange,
+        theme = {},
+        store,
+        entityMutability,
+        positionSuggestions,
+        ...elementProps
+      } = this.props;
+
       return (
         <div
-          {...this.props}
+          {...elementProps}
           className={ theme[suggestionsThemeKey] }
           role="listbox"
           id={ `completions-list-${this.key}` }
-          ref="popover"
+          ref={this.popoverRef}
         >
           {
             this.props.suggestions.map((completion, index) => (
