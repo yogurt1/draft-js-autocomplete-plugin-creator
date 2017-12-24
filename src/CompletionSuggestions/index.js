@@ -14,6 +14,7 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
         'IMMUTABLE',
         'MUTABLE',
       ]),
+      suggestions: PropTypes.arrayOf(PropTypes.object).isRequired
     };
 
     state = {
@@ -37,7 +38,7 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
         // In case the list shrinks there should be still an option focused.
         // Note: this might run multiple times and deduct 1 until the condition is
         // not fullfilled anymore.
-        const size = this.props.suggestions.size;
+        const size = this.props.suggestions.length;
         if (size > 0 && this.state.focusedOptionIndex >= size) {
           this.setState({
             focusedOptionIndex: size - 1,
@@ -160,7 +161,7 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
     onDownArrow = (keyboardEvent) => {
       keyboardEvent.preventDefault();
       const newIndex = this.state.focusedOptionIndex + 1;
-      this.onCompletionFocus(newIndex >= this.props.suggestions.size ? 0 : newIndex);
+      this.onCompletionFocus(newIndex >= this.props.suggestions.length ? 0 : newIndex);
     };
 
     onTab = (keyboardEvent) => {
@@ -170,7 +171,7 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
 
     onUpArrow = (keyboardEvent) => {
       keyboardEvent.preventDefault();
-      if (this.props.suggestions.size > 0) {
+      if (this.props.suggestions.length > 0) {
         const newIndex = this.state.focusedOptionIndex - 1;
         this.onCompletionFocus(Math.max(newIndex, 0));
       }
@@ -210,7 +211,7 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
     };
 
     commitSelection = () => {
-      this.onCompletionSelect(this.props.suggestions.get(this.state.focusedOptionIndex));
+      this.onCompletionSelect(this.props.suggestions[this.state.focusedOptionIndex]);
       return true;
     };
 
@@ -285,7 +286,7 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
                 id={ `completion-option-${this.key}-${index}` }
                 theme={ theme }
               />
-            )).toJS()
+            ))
           }
         </div>
       );
