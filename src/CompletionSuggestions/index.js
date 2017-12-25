@@ -1,28 +1,23 @@
-import React, { Component } from 'react';
-import * as PropTypes from 'prop-types';
+import * as React from "react";
+import * as PropTypes from "prop-types";
+import { KeyBindingUtil } from 'draft-js';
+import decodeOffsetKey from "../utils/decodeOffsetKey";
+import { genKey } from "draft-js";
+import getSearchText from "../utils/getSearchText";
 
-import decodeOffsetKey from '../utils/decodeOffsetKey';
-import { genKey } from 'draft-js';
-import getSearchText from '../utils/getSearchText';
-
-export default function (addModifier, Entry, suggestionsThemeKey) {
-  return class CompletionSuggestions extends Component {
-
+const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
+  class CompletionSuggestions extends React.Component {
     static propTypes = {
-      entityMutability: PropTypes.oneOf([
-        'SEGMENTED',
-        'IMMUTABLE',
-        'MUTABLE',
-      ]),
+      entityMutability: PropTypes.oneOf(["SEGMENTED", "IMMUTABLE", "MUTABLE"]),
       suggestions: PropTypes.arrayOf(PropTypes.object).isRequired
     };
 
     popover;
-    popoverRef = ref => this.popover = ref;
+    popoverRef = ref => (this.popover = ref);
 
     state = {
       isActive: false,
-      focusedOptionIndex: 0,
+      focusedOptionIndex: 0
     };
 
     componentWillMount() {
@@ -33,35 +28,45 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
     componentWillReceiveProps(nextProps) {
       if (nextProps.suggestions.length === 0 && this.state.isActive) {
         this.closeDropdown();
-      } else if (nextProps.suggestions.length > 0 && !this.state.isActive && nextProps.suggestions !== this.props.suggestions) {
+      } else if (
+        nextProps.suggestions.length > 0 &&
+        !this.state.isActive &&
+        nextProps.suggestions !== this.props.suggestions
+      ) {
         this.openDropdown();
       }
     }
 
     componentDidUpdate(prevProps, prevState) {
-      if (this.popover) {
+      if (
+        this.popover && this.props.store.getAllSearches().has(this.activeOffsetKey)
+      ) {
         // In case the list shrinks there should be still an option focused.
         // Note: this might run multiple times and deduct 1 until the condition is
         // not fullfilled anymore.
         const size = this.props.suggestions.length;
         if (size > 0 && this.state.focusedOptionIndex >= size) {
           this.setState({
-            focusedOptionIndex: size - 1,
+            focusedOptionIndex: size - 1
           });
         }
 
-        const decoratorRect = this.props.store.getPortalClientRect(this.activeOffsetKey);
-        const newStyles = this.props.positionSuggestions({
-          decoratorRect,
-          prevProps,
-          prevState,
-          props: this.props,
-          state: this.state,
-          popover: this.popover,
-        });
-        Object.keys(newStyles).forEach((key) => {
-          this.popover.style[key] = newStyles[key];
-        });
+        const decoratorRect = this.props.store.getPortalClientRect(
+          this.activeOffsetKey
+        );
+        if (decoratorRect) {
+          const newStyles = this.props.positionSuggestions({
+            decoratorRect,
+            prevProps,
+            prevState,
+            props: this.props,
+            state: this.state,
+            popover: this.popover
+          });
+          Object.keys(newStyles).forEach(key => {
+            this.popover.style[key] = newStyles[key];
+          });
+        }
       }
     }
 
@@ -69,7 +74,7 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       this.props.callbacks.onChange = undefined;
     }
 
-    onEditorStateChange = (editorState) => {
+    onEditorStateChange = editorState => {
       const searches = this.props.store.getAllSearches();
 
       // if no search portal is active there is no need to show the popover
@@ -89,22 +94,25 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       const anchorOffset = selection.getAnchorOffset();
 
       // the list should not be visible if a range is selected or the editor has no focus
-      if (!selection.isCollapsed() || !selection.getHasFocus()) return removeList();
+      if (!selection.isCollapsed() || !selection.getHasFocus())
+        return removeList();
 
       // identify the start & end positon of each search-text
-      const offsetDetails = searches.map((offsetKey) => decodeOffsetKey(offsetKey));
+      const offsetDetails = searches.map(offsetKey =>
+        decodeOffsetKey(offsetKey)
+      );
 
       // a leave can be empty when it is removed due e.g. using backspace
       const leaves = offsetDetails
         .filter(({ blockKey }) => blockKey === anchorKey)
-        .map(({ blockKey, decoratorKey, leafKey }) => (
+        .map(({ blockKey, decoratorKey, leafKey }) =>
           editorState
             .getBlockTree(blockKey)
-            .getIn([decoratorKey, 'leaves', leafKey])
-        ));
+            .getIn([decoratorKey, "leaves", leafKey])
+        );
 
       // if all leaves are undefined the popover should be removed
-      if (leaves.every((leave) => leave === undefined)) {
+      if (leaves.every(leave => leave === undefined)) {
         return removeList();
       }
 
@@ -112,13 +120,15 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       // the word (search term). Setting it to allow the cursor to be left of
       // the 'autocomplete character' causes troubles due selection confusion.
       const selectionIsInsideWord = leaves
-        .filter((leave) => leave !== undefined)
-        .map(({ start, end }) => (
-          start === 0 && anchorOffset === 1 && anchorOffset <= end || // @ is the first character
-          anchorOffset > start + 1 && anchorOffset <= end // @ is in the text or at the end
-        ));
+        .filter(leave => leave !== undefined)
+        .map(
+          ({ start, end }) =>
+            (start === 0 && anchorOffset === 1 && anchorOffset <= end) || // @ is the first character
+            (anchorOffset > start + 1 && anchorOffset <= end) // @ is in the text or at the end
+        );
 
-      if (selectionIsInsideWord.every((isInside) => isInside === false)) return removeList();
+      if (selectionIsInsideWord.every(isInside => isInside === false))
+        return removeList();
 
       this.activeOffsetKey = selectionIsInsideWord
         .filter(value => value === true)
@@ -136,16 +146,21 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       // If none of the above triggered to close the window, it's safe to assume
       // the dropdown should be open. This is useful when a user focuses on another
       // input field and then comes back: the dropdown will again.
-      if (!this.state.isActive && !this.props.store.isEscaped(this.activeOffsetKey)) {
+      if (
+        !this.state.isActive &&
+        !this.props.store.isEscaped(this.activeOffsetKey)
+      ) {
         this.openDropdown();
       }
 
       // makes sure the focused index is reseted every time a new selection opens
       // or the selection was moved to another completion search
-      if (this.lastSelectionIsInsideWord === undefined ||
-          !selectionIsInsideWord.equals(this.lastSelectionIsInsideWord)) {
+      if (
+        this.lastSelectionIsInsideWord === undefined ||
+        !selectionIsInsideWord.equals(this.lastSelectionIsInsideWord)
+      ) {
         this.setState({
-          focusedOptionIndex: 0,
+          focusedOptionIndex: 0
         });
       }
 
@@ -163,18 +178,27 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       }
     };
 
-    onDownArrow = (keyboardEvent) => {
-      keyboardEvent.preventDefault();
-      const newIndex = this.state.focusedOptionIndex + 1;
-      this.onCompletionFocus(newIndex >= this.props.suggestions.length ? 0 : newIndex);
+    handleReturn = event => {
+      if (KeyBindingUtil.hasCommandModifier(event)) {
+        this.commitSelection();
+        return "handled";
+      }
     };
 
-    onTab = (keyboardEvent) => {
+    onDownArrow = keyboardEvent => {
+      keyboardEvent.preventDefault();
+      const newIndex = this.state.focusedOptionIndex + 1;
+      this.onCompletionFocus(
+        newIndex >= this.props.suggestions.length ? 0 : newIndex
+      );
+    };
+
+    onTab = keyboardEvent => {
       keyboardEvent.preventDefault();
       this.commitSelection();
     };
 
-    onUpArrow = (keyboardEvent) => {
+    onUpArrow = keyboardEvent => {
       keyboardEvent.preventDefault();
       if (this.props.suggestions.length > 0) {
         const newIndex = this.state.focusedOptionIndex - 1;
@@ -182,13 +206,13 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       }
     };
 
-    onEscape = (keyboardEvent) => {
+    onEscape = keyboardEvent => {
       keyboardEvent.preventDefault();
 
       const activeOffsetKey = this.lastSelectionIsInsideWord
-      .filter(value => value === true)
-      .keySeq()
-      .first();
+        .filter(value => value === true)
+        .keySeq()
+        .first();
       this.props.store.escapeSearch(activeOffsetKey);
       this.closeDropdown();
 
@@ -196,27 +220,29 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       this.props.store.setEditorState(this.props.store.getEditorState());
     };
 
-    onCompletionSelect = (completion) => {
+    onCompletionSelect = completion => {
       this.closeDropdown();
       const newEditorState = addModifier(
         this.props.store.getEditorState(),
         completion,
-        this.props.entityMutability,
+        this.props.entityMutability
       );
       this.props.store.setEditorState(newEditorState);
     };
 
-    onCompletionFocus = (index) => {
+    onCompletionFocus = index => {
       const descendant = `completion-option-${this.key}-${index}`;
       this.props.ariaProps.ariaActiveDescendantID = descendant;
-      this.state.focusedOptionIndex = index;
+      this.setState({ focusedOptionIndex: index });
 
       // to force a re-render of the outer component to change the aria props
       this.props.store.setEditorState(this.props.store.getEditorState());
     };
 
     commitSelection = () => {
-      this.onCompletionSelect(this.props.suggestions[this.state.focusedOptionIndex]);
+      this.onCompletionSelect(
+        this.props.suggestions[this.state.focusedOptionIndex]
+      );
       return true;
     };
 
@@ -228,16 +254,18 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       this.props.callbacks.onDownArrow = this.onDownArrow;
       this.props.callbacks.onUpArrow = this.onUpArrow;
       this.props.callbacks.onEscape = this.onEscape;
-      this.props.callbacks.handleReturn = this.commitSelection;
+      this.props.callbacks.handleReturn = this.handleReturn;
       this.props.callbacks.onTab = this.onTab;
 
-      const descendant = `completion-option-${this.key}-${this.state.focusedOptionIndex}`;
+      const descendant = `completion-option-${this.key}-${
+        this.state.focusedOptionIndex
+      }`;
       this.props.ariaProps.ariaActiveDescendantID = descendant;
       this.props.ariaProps.ariaOwneeID = `completions-list-${this.key}`;
-      this.props.ariaProps.ariaHasPopup = 'true';
-      this.props.ariaProps.ariaExpanded = 'true';
+      this.props.ariaProps.ariaHasPopup = "true";
+      this.props.ariaProps.ariaExpanded = "true";
       this.setState({
-        isActive: true,
+        isActive: true
       });
 
       if (this.props.onOpen) {
@@ -252,12 +280,12 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       this.props.callbacks.onTab = undefined;
       this.props.callbacks.onEscape = undefined;
       this.props.callbacks.handleReturn = undefined;
-      this.props.ariaProps.ariaHasPopup = 'false';
-      this.props.ariaProps.ariaExpanded = 'false';
+      this.props.ariaProps.ariaHasPopup = "false";
+      this.props.ariaProps.ariaExpanded = "false";
       this.props.ariaProps.ariaActiveDescendantID = undefined;
       this.props.ariaProps.ariaOwneeID = undefined;
       this.setState({
-        isActive: false,
+        isActive: false
       });
 
       if (this.props.onClose) {
@@ -285,27 +313,24 @@ export default function (addModifier, Entry, suggestionsThemeKey) {
       return (
         <div
           {...elementProps}
-          className={ theme[suggestionsThemeKey] }
+          className={theme[suggestionsThemeKey]}
           role="listbox"
-          id={ `completions-list-${this.key}` }
+          id={`completions-list-${this.key}`}
           ref={this.popoverRef}
         >
-          {
-            this.props.suggestions.map((completion, index) => (
-              <Entry
-                key={ index }
-                onCompletionSelect={ this.onCompletionSelect }
-                onCompletionFocus={ this.onCompletionFocus }
-                isFocused={ this.state.focusedOptionIndex === index }
-                completion={ completion }
-                index={ index }
-                id={ `completion-option-${this.key}-${index}` }
-                theme={ theme }
-              />
-            ))
-          }
+          {this.props.suggestions.map((completion, index) => (
+            <Entry
+              key={index}
+              onCompletionSelect={this.onCompletionSelect}
+              onCompletionFocus={this.onCompletionFocus}
+              isFocused={this.state.focusedOptionIndex === index}
+              completion={completion}
+              index={index}
+              id={`completion-option-${this.key}-${index}`}
+              theme={theme}
+            />
+          ))}
         </div>
       );
     }
   };
-}

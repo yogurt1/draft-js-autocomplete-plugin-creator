@@ -1,7 +1,6 @@
-import React, { Component } from 'react';
+import * as React from "react";
 
-export default class CompletionSuggestionsPortal extends Component {
-
+export default class CompletionSuggestionsPortal extends React.Component {
   componentWillMount() {
     this.props.store.register(this.props.offsetKey);
     this.updatePortalClientRect(this.props);
@@ -19,18 +18,15 @@ export default class CompletionSuggestionsPortal extends Component {
   }
 
   updatePortalClientRect(props) {
-    this.props.store.updatePortalClientRect(
-      props.offsetKey,
-      () => (
-        this.refs.searchPortal.getBoundingClientRect()
-      ),
+    this.props.store.updatePortalClientRect(props.offsetKey, () =>
+      this.refs.searchPortal.getBoundingClientRect()
     );
   }
 
   render() {
     return (
       <span className={this.key} ref="searchPortal">
-        { this.props.children }
+        {this.props.children}
       </span>
     );
   }
