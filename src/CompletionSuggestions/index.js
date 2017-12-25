@@ -336,3 +336,5 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
       );
     }
   };
+
+export default createCompletionSuggestions;
