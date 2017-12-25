@@ -178,13 +178,6 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
       }
     };
 
-    handleReturn = event => {
-      if (KeyBindingUtil.hasCommandModifier(event)) {
-        this.commitSelection();
-        return "handled";
-      }
-    };
-
     onDownArrow = keyboardEvent => {
       keyboardEvent.preventDefault();
       const newIndex = this.state.focusedOptionIndex + 1;
@@ -222,6 +215,11 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
 
     onCompletionSelect = completion => {
       this.closeDropdown();
+
+      if (this.props.onSelect) {
+        this.props.onSelect(completion);
+      }
+
       const newEditorState = addModifier(
         this.props.store.getEditorState(),
         completion,
@@ -240,10 +238,14 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
     };
 
     commitSelection = () => {
+      if (!this.props.store.getIsOpened()) {
+        return 'not-handled';
+      }
+  
       this.onCompletionSelect(
         this.props.suggestions[this.state.focusedOptionIndex]
       );
-      return true;
+      return 'handled';
     };
 
     openDropdown = () => {
@@ -254,7 +256,7 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
       this.props.callbacks.onDownArrow = this.onDownArrow;
       this.props.callbacks.onUpArrow = this.onUpArrow;
       this.props.callbacks.onEscape = this.onEscape;
-      this.props.callbacks.handleReturn = this.handleReturn;
+      this.props.callbacks.handleReturn = this.commitSelection;
       this.props.callbacks.onTab = this.onTab;
 
       const descendant = `completion-option-${this.key}-${
