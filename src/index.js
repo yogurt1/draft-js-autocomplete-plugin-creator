@@ -34,6 +34,7 @@ const createCompletionPlugin = (
   let searches = Map();
   let escapedSearch = undefined;
   let clientRectFunctions = Map();
+  let isOpened;
 
   const store = {
     getEditorState: undefined,
@@ -61,6 +62,11 @@ const createCompletionPlugin = (
       searches = searches.delete(offsetKey);
       clientRectFunctions = clientRectFunctions.delete(offsetKey);
     },
+
+    getIsOpened: () => isOpened,
+    setIsOpened: nextIsOpened => {
+      isOpened = nextIsOpened;
+    }
   };
 
   const {
@@ -101,15 +107,17 @@ const createCompletionPlugin = (
       store.setEditorState = setEditorState;
     },
 
-    onDownArrow: (keyboardEvent) => callbacks.onDownArrow && callbacks.onDownArrow(keyboardEvent),
-    onTab: (keyboardEvent) => callbacks.onTab && callbacks.onTab(keyboardEvent),
-    onUpArrow: (keyboardEvent) => callbacks.onUpArrow && callbacks.onUpArrow(keyboardEvent),
-    onEscape: (keyboardEvent) => callbacks.onEscape && callbacks.onEscape(keyboardEvent),
-    handleReturn: (keyboardEvent) => callbacks.handleReturn && callbacks.handleReturn(keyboardEvent),
-    onChange: (editorState) => {
-      if (callbacks.onChange) return callbacks.onChange(editorState);
+    onDownArrow: event => callbacks.onDownArrow && callbacks.onDownArrow(event),
+    onTab: event => callbacks.onTab && callbacks.onTab(event),
+    onUpArrow: event => callbacks.onUpArrow && callbacks.onUpArrow(event),
+    onEscape: event => callbacks.onEscape && callbacks.onEscape(event),
+    handleReturn: event => callbacks.handleReturn && callbacks.handleReturn(event),
+    onChange: editorState => {
+      if (callbacks.onChange) {
+        return callbacks.onChange(editorState);
+      }
       return editorState;
-    },
+    }
   };
 };
 

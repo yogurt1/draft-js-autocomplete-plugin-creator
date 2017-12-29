@@ -1,11 +1,11 @@
 import * as React from "react";
 import * as PropTypes from "prop-types";
-import { KeyBindingUtil } from 'draft-js';
+import { KeyBindingUtil, getDefaultKeyBinding } from 'draft-js';
 import decodeOffsetKey from "../utils/decodeOffsetKey";
 import { genKey } from "draft-js";
 import getSearchText from "../utils/getSearchText";
 
-const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
+const createCompletionSuggestions = (modifier, Entry, suggestionsThemeKey) =>
   class CompletionSuggestions extends React.Component {
     static propTypes = {
       entityMutability: PropTypes.oneOf(["SEGMENTED", "IMMUTABLE", "MUTABLE"]),
@@ -26,13 +26,11 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
     }
 
     componentWillReceiveProps(nextProps) {
-      if (nextProps.suggestions.length === 0 && this.state.isActive) {
+      const { suggestions } = this.props;
+      const { isActive } = this.state;
+      if (suggestions.length === 0 && isActive) {
         this.closeDropdown();
-      } else if (
-        nextProps.suggestions.length > 0 &&
-        !this.state.isActive &&
-        nextProps.suggestions !== this.props.suggestions
-      ) {
+      } else if (suggestions.length > 0 && !isActive && suggestions !== this.props.suggestions) {
         this.openDropdown();
       }
     }
@@ -75,7 +73,8 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
     }
 
     onEditorStateChange = editorState => {
-      const searches = this.props.store.getAllSearches();
+      const { store } = this.props;
+      const searches = store.getAllSearches();
 
       // if no search portal is active there is no need to show the popover
       if (searches.size === 0) {
@@ -83,7 +82,7 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
       }
 
       const removeList = () => {
-        this.props.store.resetEscapedSearch();
+        store.resetEscapedSearch();
         this.closeDropdown();
         return editorState;
       };
@@ -139,8 +138,8 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
 
       // make sure the escaped search is reseted in the cursor since the user
       // already switched to another completion search
-      if (!this.props.store.isEscaped(this.activeOffsetKey)) {
-        this.props.store.resetEscapedSearch();
+      if (!store.isEscaped(this.activeOffsetKey)) {
+        store.resetEscapedSearch();
       }
 
       // If none of the above triggered to close the window, it's safe to assume
@@ -148,7 +147,8 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
       // input field and then comes back: the dropdown will again.
       if (
         !this.state.isActive &&
-        !this.props.store.isEscaped(this.activeOffsetKey)
+        !store.isEscaped(this.activeOffsetKey) &&
+        this.props.suggestions.length > 0
       ) {
         this.openDropdown();
       }
@@ -179,51 +179,63 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
     };
 
     onDownArrow = keyboardEvent => {
-      keyboardEvent.preventDefault();
-      const newIndex = this.state.focusedOptionIndex + 1;
-      this.onCompletionFocus(
-        newIndex >= this.props.suggestions.length ? 0 : newIndex
-      );
+      if (this.state.isActive) {
+        keyboardEvent.preventDefault();
+        const newIndex = this.state.focusedOptionIndex + 1;
+        this.onCompletionFocus(
+          newIndex >= this.props.suggestions.length ? 0 : newIndex
+        );
+      }
     };
 
     onTab = keyboardEvent => {
-      keyboardEvent.preventDefault();
-      this.commitSelection();
+      if (this.state.isActive) {
+        keyboardEvent.preventDefault();
+        this.commitSelection();
+      }
     };
 
     onUpArrow = keyboardEvent => {
-      keyboardEvent.preventDefault();
-      if (this.props.suggestions.length > 0) {
-        const newIndex = this.state.focusedOptionIndex - 1;
-        this.onCompletionFocus(Math.max(newIndex, 0));
+      if (this.state.isActive) {
+        const { suggestions } = this.props;
+        keyboardEvent.preventDefault();
+        if (suggestions.length > 0) {
+          const newIndex = this.state.focusedOptionIndex - 1;
+          this.onCompletionFocus(newIndex < 0 ? suggestions.length - 1 : newIndex);
+        }
       }
     };
 
     onEscape = keyboardEvent => {
-      keyboardEvent.preventDefault();
-
-      const activeOffsetKey = this.lastSelectionIsInsideWord
-        .filter(value => value === true)
-        .keySeq()
-        .first();
-      this.props.store.escapeSearch(activeOffsetKey);
-      this.closeDropdown();
-
-      // to force a re-render of the outer component to change the aria props
-      this.props.store.setEditorState(this.props.store.getEditorState());
+      if (this.state.isActive) {
+        keyboardEvent.preventDefault();
+        keyboardEvent.stopPropagation();
+  
+        const activeOffsetKey = this.lastSelectionIsInsideWord
+          .filter(value => value === true)
+          .keySeq()
+          .first();
+        this.props.store.escapeSearch(activeOffsetKey);
+        this.closeDropdown();
+  
+        // to force a re-render of the outer component to change the aria props
+        this.props.store.setEditorState(this.props.store.getEditorState());
+      }
     };
 
     onCompletionSelect = completion => {
-      this.closeDropdown();
+      if (!this.state.isActive || !completion) {
+        return;
+      }
 
       if (this.props.onSelect) {
         this.props.onSelect(completion);
       }
 
-      const newEditorState = addModifier(
+      this.closeDropdown();
+      const newEditorState = modifier(
         this.props.store.getEditorState(),
-        completion,
-        this.props.entityMutability
+        completion
       );
       this.props.store.setEditorState(newEditorState);
     };
@@ -237,61 +249,61 @@ const createCompletionSuggestions = (addModifier, Entry, suggestionsThemeKey) =>
       this.props.store.setEditorState(this.props.store.getEditorState());
     };
 
-    commitSelection = () => {
-      if (!this.props.store.getIsOpened()) {
-        return 'not-handled';
+    commitSelection = event => {
+      if (this.state.isActive) {
+        this.onCompletionSelect(
+          this.props.suggestions[this.state.focusedOptionIndex]
+        );
+        return 'handled';
       }
-  
-      this.onCompletionSelect(
-        this.props.suggestions[this.state.focusedOptionIndex]
-      );
-      return 'handled';
     };
 
     openDropdown = () => {
+      const { callbacks, ariaProps, onOpen } = this.props;
       // This is a really nasty way of attaching & releasing the key related functions.
       // It assumes that the keyFunctions object will not loose its reference and
       // by this we can replace inner parameters spread over different modules.
       // This better be some registering & unregistering logic. PRs are welcome :)
-      this.props.callbacks.onDownArrow = this.onDownArrow;
-      this.props.callbacks.onUpArrow = this.onUpArrow;
-      this.props.callbacks.onEscape = this.onEscape;
-      this.props.callbacks.handleReturn = this.commitSelection;
-      this.props.callbacks.onTab = this.onTab;
+      callbacks.onDownArrow = this.onDownArrow;
+      callbacks.onUpArrow = this.onUpArrow;
+      callbacks.onEscape = this.onEscape;
+      callbacks.handleReturn = this.commitSelection;
+      callbacks.onTab = this.onTab;
 
       const descendant = `completion-option-${this.key}-${
         this.state.focusedOptionIndex
       }`;
-      this.props.ariaProps.ariaActiveDescendantID = descendant;
-      this.props.ariaProps.ariaOwneeID = `completions-list-${this.key}`;
-      this.props.ariaProps.ariaHasPopup = "true";
-      this.props.ariaProps.ariaExpanded = "true";
+      ariaProps.ariaActiveDescendantID = descendant;
+      ariaProps.ariaOwneeID = `completions-list-${this.key}`;
+      ariaProps.ariaHasPopup = "true";
+      ariaProps.ariaExpanded = "true";
       this.setState({
         isActive: true
       });
 
-      if (this.props.onOpen) {
-        this.props.onOpen();
+      if (onOpen) {
+        onOpen();
       }
     };
 
     closeDropdown = () => {
+      const { callbacks, ariaProps, onClose } = this.props;
       // make sure none of these callbacks are triggered
-      this.props.callbacks.onDownArrow = undefined;
-      this.props.callbacks.onUpArrow = undefined;
-      this.props.callbacks.onTab = undefined;
-      this.props.callbacks.onEscape = undefined;
-      this.props.callbacks.handleReturn = undefined;
-      this.props.ariaProps.ariaHasPopup = "false";
-      this.props.ariaProps.ariaExpanded = "false";
-      this.props.ariaProps.ariaActiveDescendantID = undefined;
-      this.props.ariaProps.ariaOwneeID = undefined;
+      callbacks.onDownArrow = undefined;
+      callbacks.onUpArrow = undefined;
+      callbacks.onTab = undefined;
+      callbacks.onEscape = undefined;
+      callbacks.handleReturn = undefined;
+      ariaProps.ariaHasPopup = "false";
+      ariaProps.ariaExpanded = "false";
+      ariaProps.ariaActiveDescendantID = undefined;
+      ariaProps.ariaOwneeID = undefined;
       this.setState({
         isActive: false
       });
 
-      if (this.props.onClose) {
-        this.props.onClose();
+      if (onClose) {
+        onClose();
       }
     };
 

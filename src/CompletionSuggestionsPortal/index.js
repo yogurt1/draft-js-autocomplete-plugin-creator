@@ -1,11 +1,11 @@
 import * as React from "react";
 
 export default class CompletionSuggestionsPortal extends React.Component {
-  componentWillMount() {
-    this.props.store.register(this.props.offsetKey);
+  componentDidMount() {
+    const { store } = this.props;
+    store.register(this.props.offsetKey);
+    store.setIsOpened(true);
     this.updatePortalClientRect(this.props);
-
-    // trigger a re-render so the MentionSuggestions becomes active
     this.props.setEditorState(this.props.getEditorState());
   }
 
@@ -14,7 +14,9 @@ export default class CompletionSuggestionsPortal extends React.Component {
   }
 
   componentWillUnmount() {
-    this.props.store.unregister(this.props.offsetKey);
+    const { store } = this.props;
+    store.unregister(this.props.offsetKey);
+    store.setIsOpened(false);
   }
 
   updatePortalClientRect(props) {
