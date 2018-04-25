@@ -1,37 +1,39 @@
-import * as React from "react";
+import React from 'react';
 
 export default class CompletionSuggestionsPortal extends React.Component {
-  searchPortal = null;
-  searchPortalRef = ref => {
-    this.searchPortal = ref;
-  };
+  searchPortalRef = React.createRef();
 
   componentDidMount() {
-    const { store } = this.props;
-    store.register(this.props.offsetKey);
-    this.updatePortalClientRect(this.props);
-    this.props.setEditorState(this.props.getEditorState());
+    const {store, offsetKey, getEditorState, setEditorState} = this.props;
+    store.register(offsetKey);
+    this.updatePortalClientRect();
+    setEditorState(getEditorState());
   }
 
-  componentWillReceiveProps(nextProps) {
-    this.updatePortalClientRect(nextProps);
+  componentDidUpdate() {
+    this.updatePortalClientRect();
   }
 
   componentWillUnmount() {
-    const { store } = this.props;
+    const {store} = this.props;
     store.unregister(this.props.offsetKey);
   }
 
   updatePortalClientRect(props) {
-    this.props.store.updatePortalClientRect(props.offsetKey, () =>
-      this.searchPortal.getBoundingClientRect()
+    const {store, offsetKey} = this.props;
+    store.updatePortalClientRect(offsetKey, () =>
+      this.searchPortalRef.value.getBoundingClientRect(),
     );
   }
 
   render() {
+    const {children} = this.props;
     return (
-      <span className={this.key} ref={this.searchPortalRef}>
-        {this.props.children}
+      <span
+        data-randomshit="lol"
+        className={this.key}
+        ref={this.searchPortalRef}>
+        {children}
       </span>
     );
   }
