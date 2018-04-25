@@ -22,7 +22,7 @@ export default class CompletionSuggestionsPortal extends React.Component {
   updatePortalClientRect(props) {
     const {store, offsetKey} = this.props;
     store.updatePortalClientRect(offsetKey, () =>
-      this.searchPortalRef.value.getBoundingClientRect(),
+      this.searchPortalRef.current.getBoundingClientRect(),
     );
   }
 
